@@ -1,0 +1,44 @@
+[project]
+name = "orbit-api"
+version = "0.1.0"
+description = "Orbit — приватное PWA для планирования свиданий (бэкенд)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.13.0",
+    "ruff>=0.7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+# disallow_any_explicit намеренно не включён: плагин pydantic синтезирует
+# __init__ моделей с Any, и флаг ругался бы на каждый класс-схему, а не на наш код.
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# alembic-скрипты генерируются шаблоном и не аннотируются полностью.
+module = "alembic.*"
+ignore_errors = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ANN", "ASYNC"]

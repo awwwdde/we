@@ -1,0 +1,27 @@
+.git
+.gitignore
+.env
+*.env
+!.env.example
+
+# Фронт: node_modules и dist пересобираются внутри образа
+web/node_modules
+web/dist
+
+# Python
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+*.egg-info
+
+# Локальная инфраструктура, в прод-образ не нужна
+docker-compose.yml
+docker-compose.prod.yml
+.claude
+
+*.md
+!README.md
