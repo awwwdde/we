@@ -32,6 +32,9 @@ services:
       # Формат без драйвера — ровно как отдаёт панель на проде (см. config.py).
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       PUBLIC_SITE_URL: http://localhost:5173
+      # Вход без passkey для отладки в браузере на ПК. Файл dev-only;
+      # на проде config.py не даст поднять приложение с этим флагом.
+      DEV_AUTH_ENABLED: "true"
     volumes:
       - ./api:/app
     ports:

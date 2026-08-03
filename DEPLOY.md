@@ -1,9 +1,9 @@
-# Развёртывание Orbit как под-сайта awwwdde
+# Развёртывание Перигей как под-сайта awwwdde
 
-**Прод-адрес:** `https://welove.awwwdde.art`
-**Slug проекта в панели:** `welove`
+**Прод-адрес:** `https://perigee.awwwdde.art`
+**Slug проекта в панели:** `perigee`
 
-Orbit разворачивается платформой [awwwdde](../awwwdde) — тем же способом,
+Перигей разворачивается платформой [awwwdde](../awwwdde) — тем же способом,
 что и «Дом Союзов» (`union.awwwdde.art`). Раздел 17 ТЗ (отдельный VPS с
 Nginx + certbot) заменён на этот сценарий.
 
@@ -17,14 +17,14 @@ Nginx + certbot) заменён на этот сценарий.
                    ┌────────┐
                    │ Caddy  │  автоматический TLS, маршрут по хосту
                    └───┬────┘
-                       │  welove.awwwdde.art → welove_app:8080
+                       │  perigee.awwwdde.art → perigee_app:8080
                        ▼
-                 welove_app  ──────►  welove_db (Postgres 16, свой volume)
+                 perigee_app  ──────►  perigee_db (Postgres 16, свой volume)
             (наш контейнер: FastAPI + собранная SPA)
 ```
 
-Панель на каждый деплой пересоздаёт `welove_app` из корневого `Dockerfile`,
-а `welove_db` живёт постоянно вместе со своим volume `welove_db_data`.
+Панель на каждый деплой пересоздаёт `perigee_app` из корневого `Dockerfile`,
+а `perigee_db` живёт постоянно вместе со своим volume `perigee_db_data`.
 
 ## Контракт, который мы выполняем
 
@@ -38,18 +38,18 @@ Nginx + certbot) заменён на этот сценарий.
 
 Панель сама прокидывает в контейнер:
 
-- `DATABASE_URL` — вида `postgresql://welove:<pass>@welove_db:5432/welove`
+- `DATABASE_URL` — вида `postgresql://perigee:<pass>@perigee_db:5432/perigee`
   (без драйвера; `config.py` нормализует его в `postgresql+asyncpg://`);
-- `PUBLIC_SITE_URL` — `https://welove.awwwdde.art`;
+- `PUBLIC_SITE_URL` — `https://perigee.awwwdde.art`;
 - `SECRET_KEY` и `JWT_SECRET` — стабильные между деплоями.
 
-Из `PUBLIC_SITE_URL` выводятся `ORIGIN` и **`RP_ID` = `welove.awwwdde.art`**.
+Из `PUBLIC_SITE_URL` выводятся `ORIGIN` и **`RP_ID` = `perigee.awwwdde.art`**.
 `RP_ID` вшивается в каждый passkey навсегда: сменить домен потом нельзя,
 не убив все ключи. Поэтому он не задаётся руками, а выводится из адреса.
 
 ## Переменные, которые нужно задать в админке панели
 
-Вкладка env-переменных проекта `welove`:
+Вкладка env-переменных проекта `perigee`:
 
 ```
 VAPID_PUBLIC_KEY       — Фаза 7
@@ -66,16 +66,16 @@ TIMEZONE               — Europe/Moscow
 ## Деплой
 
 ```bash
-python back/cli.py deploy welove --source https://github.com/awwwdde/orbit.git
+python back/cli.py deploy perigee --source https://github.com/awwwdde/perigee.git
 ```
 
 или через веб-админку: `https://awwwdde.art/admin` → Под-сайты → «+ Новый»
-(slug `welove`, git-URL, галка «развернуть сразу»).
+(slug `perigee`, git-URL, галка «развернуть сразу»).
 
 Проверка после деплоя:
 
 ```bash
-curl -i https://welove.awwwdde.art/healthz
+curl -i https://perigee.awwwdde.art/healthz
 ```
 
 ## Чем прод отличается от ТЗ 17
@@ -105,7 +105,7 @@ Redis убран и из dev-окружения тоже — чтобы dev и �
 ### Про хранение файлов
 
 У гостевого контейнера нет постоянного тома: всё, что записано на диск,
-исчезает при следующем деплое. Для Orbit это не проблема — приложение
+исчезает при следующем деплое. Для Перигей это не проблема — приложение
 файлы не хранит (фото мест приходят ссылками от провайдеров).
 
 ## Локальная разработка
@@ -123,9 +123,9 @@ docker compose up
 Проверить прод-сборку целиком (один контейнер, как на панели):
 
 ```bash
-docker build -t orbit:local .
+docker build -t perigee:local .
 docker run --rm -p 8080:8080 \
-  -e DATABASE_URL=postgresql://orbit:orbit@host.docker.internal:5432/orbit \
+  -e DATABASE_URL=postgresql://perigee:perigee@host.docker.internal:5432/perigee \
   -e PUBLIC_SITE_URL=http://localhost:8080 \
-  orbit:local
+  perigee:local
 ```

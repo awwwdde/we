@@ -50,6 +50,15 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
+  /* Барабан времени скроллится, но полосы прокрутки быть не должно. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Отступ под плавающий таббар, чтобы контент не уезжал под pill. */
   .pb-tabbar {
     padding-bottom: calc(96px + env(safe-area-inset-bottom));

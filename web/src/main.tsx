@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 
+import { DeviceGate } from '@/app/DeviceGate';
 import { router } from '@/app/router';
 import '@/styles/index.css';
 
@@ -10,6 +11,9 @@ if (!rootEl) throw new Error('Не найден #root — проверь index.h
 
 createRoot(rootEl).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    {/* Выше роутера: на неподдерживаемом устройстве экраны не монтируются. */}
+    <DeviceGate>
+      <RouterProvider router={router} />
+    </DeviceGate>
   </StrictMode>,
 );
