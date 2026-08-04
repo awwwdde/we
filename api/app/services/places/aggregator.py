@@ -118,9 +118,16 @@ def sort_places(places: list[PlaceDTO], query: PlaceQuery) -> list[PlaceDTO]:
             if place.lat is not None and place.lon is not None:
                 place.distance_m = haversine_m(query.lat, query.lon, place.lat, place.lon)
 
+    # События KudaGo приходят без координат: в выдаче поиска у них только
+    # id площадки. С `inf` они все оседали в самом хвосте — а ведь события
+    # с датами и есть то, ради чего KudaGo нужен (ТЗ 12.8), и критерий
+    # приёмки требует, чтобы выставки были видны. Поэтому место без
+    # координат считаем «где-то в середине радиуса», а не бесконечно далёким.
+    unknown_distance = query.radius / 2
+
     def key(place: PlaceDTO) -> tuple[int, float, int]:
         own = 0 if place.source is PlaceSource.custom else 1
-        distance = place.distance_m if place.distance_m is not None else math.inf
+        distance = place.distance_m if place.distance_m is not None else unknown_distance
         return (own, distance, -_completeness(place))
 
     return sorted(places, key=key)

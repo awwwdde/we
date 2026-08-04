@@ -5,6 +5,12 @@
 организаций отдают музей, но не конкретную экспозицию (ТЗ 12.8).
 
 Отсюда же берём фотографии — у OSM их нет.
+
+Про эндпоинты. У `/places/` параметр `q` **молча игнорируется**: выдача с ним
+и без него совпадает, это проверено. Текстовый поиск умеет только `/search/`,
+зато поля у него беднее — нет рубрик, а у площадок ещё и фотографий. Поэтому
+просмотр без запроса идёт через `/places/` и `/events/`, а поиск по тексту —
+через `/search/`.
 """
 
 import asyncio
@@ -57,17 +63,10 @@ class KudaGoProvider:
         return True
 
     async def search(self, query: PlaceQuery) -> list[PlaceDTO]:
-        """Ищем и события, и площадки: события дают даты, площадки — постоянные места.
+        """События и площадки одним заходом.
 
         Запросы идут параллельно: последовательно они не укладывались
         в бюджет провайдера (ТЗ 12.3).
-
-        Эндпоинт зависит от того, есть ли текст запроса. У `/places/`
-        параметр `q` **молча игнорируется** — выдача с ним и без него
-        одинаковая, это проверено. Текстовый поиск умеет только `/search/`,
-        зато у него беднее поля: у площадок нет фотографий и категорий.
-        Поэтому просмотр без запроса идёт через `/places/` и `/events/`,
-        а поиск по тексту — через `/search/`.
         """
         if query.q:
             events, places = await asyncio.gather(
@@ -75,19 +74,32 @@ class KudaGoProvider:
             )
         else:
             events, places = await asyncio.gather(
-                self._search_events(query), self._search_places(query)
+                self._browse_events(), self._browse_places()
             )
         return events + places
 
+    async def _get(self, url: str, params: dict[str, str | int]) -> list[object]:
+        response = await self._client.get(url, params=params)
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict):
+            return []
+        results = body.get("results")
+        return results if isinstance(results, list) else []
+
+    # ── Поиск по тексту: /search/ ────────────────────────────────────────────
+
     async def _search_text(self, text: str, ctype: str) -> list[PlaceDTO]:
-        params: dict[str, str | int] = {
-            "q": text,
-            "ctype": ctype,
-            "location": self._city,
-            "page_size": PAGE_SIZE,
-            "text_format": "text",
-        }
-        payload = await self._get(f"{BASE}/search/", params)
+        payload = await self._get(
+            f"{BASE}/search/",
+            {
+                "q": text,
+                "ctype": ctype,
+                "location": self._city,
+                "page_size": PAGE_SIZE,
+                "text_format": "text",
+            },
+        )
         parse = self._parse_search_event if ctype == "event" else self._parse_search_place
         return [p for p in (parse(item) for item in payload) if p is not None]
 
@@ -97,9 +109,8 @@ class KudaGoProvider:
         title = raw.get("title")
         if not isinstance(title, str) or not title.strip():
             return None
-        # Закрывшиеся заведения предлагать нельзя.
         if raw.get("is_closed") is True:
-            return None
+            return None  # закрывшееся заведение предлагать нельзя
 
         lat, lon = _coords(raw)
         return PlaceDTO(
@@ -119,6 +130,7 @@ class KudaGoProvider:
         if not isinstance(title, str) or not title.strip():
             return None
 
+        # В выдаче поиска у события только id площадки, без координат.
         place = raw.get("place") if isinstance(raw.get("place"), dict) else {}
         lat, lon = _coords(place) if isinstance(place, dict) else (None, None)
         image = raw.get("first_image")
@@ -137,57 +149,74 @@ class KudaGoProvider:
         )
 
     def _parse_daterange(self, raw: object) -> list[date] | None:
-        """`/search/` отдаёт диапазон, а не список дат — берём дату начала."""
+        """`/search/` отдаёт диапазон, а не список дат.
+
+        Три случая, и все встречаются:
+          • событие ещё не началось — берём дату начала;
+          • идёт прямо сейчас (в том числе `is_startless`, у таких KudaGo
+            ставит началом первый год нашей эры) — берём сегодня;
+          • закончилось — не показываем вовсе.
+
+        Наивный разбор «берём только start» терял дату у любой идущей
+        выставки: открылась она в прошлом, значит дата отбрасывалась
+        как прошедшая — и событие выглядело обычным местом.
+        """
         if not isinstance(raw, dict):
             return None
+
+        today = datetime.now(timezone.utc).date()
+
+        end = raw.get("end")
+        if (
+            not raw.get("is_endless")
+            and isinstance(end, int)
+            and end > 0
+            and datetime.fromtimestamp(end, timezone.utc).date() < today
+        ):
+            return None
+
+        if raw.get("is_startless"):
+            return [today]
+
         start = raw.get("start")
         if not isinstance(start, int) or start <= 0:
-            return None
+            return [today]
+
         try:
             moment = datetime.fromtimestamp(start, timezone.utc).date()
         except (OverflowError, OSError, ValueError):
-            return None
-        return [moment] if moment >= datetime.now(timezone.utc).date() else None
+            return [today]
 
-    async def _search_events(self, query: PlaceQuery) -> list[PlaceDTO]:
-        params: dict[str, str | int] = {
-            "location": self._city,
-            "page_size": PAGE_SIZE,
-            "text_format": "text",
-            "fields": "id,title,place,images,site_url,dates,categories",
-            # `expand` намеренно НЕ используется: с ним запрос занимал 9.9с
-            # вместо 1.1с и не укладывался в бюджет провайдера. Адрес события
-            # подтягивается на экране деталей — там запрос одиночный.
-            # Прошедшие события не предлагаем: их уже не посетить.
-            "actual_since": int(datetime.now(timezone.utc).timestamp()),
-        }
-        if query.q:
-            params["q"] = query.q
+        return [moment if moment >= today else today]
 
-        payload = await self._get(f"{BASE}/events/", params)
+    # ── Просмотр без запроса: /events/ и /places/ ────────────────────────────
+
+    async def _browse_events(self) -> list[PlaceDTO]:
+        payload = await self._get(
+            f"{BASE}/events/",
+            {
+                "location": self._city,
+                "page_size": PAGE_SIZE,
+                "text_format": "text",
+                "fields": "id,title,place,images,site_url,dates,categories",
+                # `expand` намеренно НЕ используется: с ним запрос занимал
+                # 9.9с вместо 1.1с и не укладывался в бюджет провайдера.
+                "actual_since": int(datetime.now(timezone.utc).timestamp()),
+            },
+        )
         return [p for p in (self._parse_event(item) for item in payload) if p is not None]
 
-    async def _search_places(self, query: PlaceQuery) -> list[PlaceDTO]:
-        params: dict[str, str | int] = {
-            "location": self._city,
-            "page_size": PAGE_SIZE,
-            "text_format": "text",
-            "fields": "id,title,address,coords,images,site_url,categories,timetable",
-        }
-        if query.q:
-            params["q"] = query.q
-
-        payload = await self._get(f"{BASE}/places/", params)
+    async def _browse_places(self) -> list[PlaceDTO]:
+        payload = await self._get(
+            f"{BASE}/places/",
+            {
+                "location": self._city,
+                "page_size": PAGE_SIZE,
+                "text_format": "text",
+                "fields": "id,title,address,coords,images,site_url,categories,timetable",
+            },
+        )
         return [p for p in (self._parse_place(item) for item in payload) if p is not None]
-
-    async def _get(self, url: str, params: dict[str, str | int]) -> list[object]:
-        response = await self._client.get(url, params=params)
-        response.raise_for_status()
-        body = response.json()
-        if not isinstance(body, dict):
-            return []
-        results = body.get("results")
-        return results if isinstance(results, list) else []
 
     def _category_of(self, payload: dict[str, object]) -> str:
         categories = payload.get("categories")
@@ -202,7 +231,6 @@ class KudaGoProvider:
     def _parse_event(self, raw: object) -> PlaceDTO | None:
         if not isinstance(raw, dict):
             return None
-
         title = raw.get("title")
         if not isinstance(title, str) or not title.strip():
             return None
@@ -227,7 +255,6 @@ class KudaGoProvider:
     def _parse_place(self, raw: object) -> PlaceDTO | None:
         if not isinstance(raw, dict):
             return None
-
         title = raw.get("title")
         if not isinstance(title, str) or not title.strip():
             return None
@@ -249,7 +276,7 @@ class KudaGoProvider:
         )
 
     def _parse_dates(self, raw: object) -> list[date] | None:
-        """Даты проведения события — то, ради чего KudaGo и нужен.
+        """Список дат из `/events/`.
 
         У повторяющихся событий API отдаёт всю историю показов, вплоть до
         давно прошедших лет. Оставляем только будущие: предлагать свидание
@@ -274,7 +301,10 @@ class KudaGoProvider:
 
         return sorted(set(result))[:20] if result else None
 
+    # ── Детали ───────────────────────────────────────────────────────────────
+
     async def details(self, external_id: str) -> PlaceDTO | None:
+        """Одиночный запрос — здесь `expand` уместен: адрес события нужен."""
         kind, _, ident = external_id.partition("/")
         if kind not in ("event", "place") or not ident:
             return None

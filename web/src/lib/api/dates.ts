@@ -14,7 +14,7 @@ export const dateStatusSchema = z.enum([
   'done',
 ]);
 
-export const placeSourceSchema = z.enum(['yandex', 'twogis', 'kudago', 'custom']);
+export const placeSourceSchema = z.enum(['yandex', 'osm', 'twogis', 'kudago', 'custom']);
 
 export const placeSnapshotSchema = z.object({
   source: placeSourceSchema,
@@ -102,6 +102,53 @@ export function cancelDate(id: string) {
 
 export function deleteDate(id: string) {
   return api(`/dates/${id}`, { method: 'DELETE' });
+}
+
+export const placeDtoSchema = z.object({
+  source: placeSourceSchema,
+  external_id: z.string(),
+  name: z.string(),
+  category: z.string(),
+  address: z.string().nullable().optional(),
+  lat: z.number().nullable().optional(),
+  lon: z.number().nullable().optional(),
+  photo_url: z.string().nullable().optional(),
+  schedule: z.object({ raw: z.string().nullable().optional() }).nullable().optional(),
+  event_dates: z.array(z.string()).nullable().optional(),
+  url: z.string().nullable().optional(),
+  distance_m: z.number().nullable().optional(),
+});
+
+export const placeSearchSchema = z.object({
+  items: z.array(placeDtoSchema),
+  /** Хотя бы один источник ответил из просроченного кэша (ТЗ 12.4). */
+  stale: z.boolean(),
+  sources: z.array(placeSourceSchema),
+});
+
+export type PlaceDto = z.infer<typeof placeDtoSchema>;
+
+/** Координаты центра Москвы — запасной вариант, если геолокация недоступна. */
+export const MOSCOW = { lat: 55.7558, lon: 37.6173 } as const;
+
+export function searchPlaces(params: {
+  q?: string;
+  category?: string;
+  lat?: number;
+  lon?: number;
+  radius?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params.q) query.set('q', params.q);
+  if (params.category) query.set('category', params.category);
+  query.set('lat', String(params.lat ?? MOSCOW.lat));
+  query.set('lon', String(params.lon ?? MOSCOW.lon));
+  if (params.radius) query.set('radius', String(params.radius));
+  return api(`/places/search?${query}`, { schema: placeSearchSchema });
+}
+
+export function fetchCategories() {
+  return api('/places/categories', { schema: z.array(z.string()) });
 }
 
 export function fetchCustomPlaces() {

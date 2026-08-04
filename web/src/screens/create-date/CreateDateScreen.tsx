@@ -1,14 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { PlaceCard } from '@/components/PlaceCard';
 import { Calendar } from '@/components/calendar/Calendar';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { TimeWheel } from '@/components/ui/TimeWheel';
 import { ApiError } from '@/lib/api/client';
-import { createCustomPlace, createDate, fetchCustomPlaces } from '@/lib/api/dates';
+import { createCustomPlace, createDate, fetchCategories, searchPlaces } from '@/lib/api/dates';
 import { screenVariants, spring } from '@/lib/motion/presets';
 import { combine, formatDayLong, formatTime, zonedToUtc } from '@/lib/time';
 import { useDateDraft } from '@/screens/create-date/useDateDraft';
@@ -33,6 +34,16 @@ const PRESETS = [
 ] as const;
 
 const NOTE_LIMIT = 280;
+
+/** Отложить значение: запрос уходит, когда человек перестал печатать. */
+function useDebounced(value: string, delay: number): string {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return settled;
+}
 
 function Chip({
   active,
@@ -64,12 +75,26 @@ export function CreateDateScreen() {
   const draft = useDateDraft();
   const [error, setError] = useState<string | null>(null);
   const [newPlaceName, setNewPlaceName] = useState('');
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
+  // Задержка перед запросом: без неё поиск уходил бы на каждую букву,
+  // а за каждым запросом стоят внешние сервисы (ТЗ 12.3).
+  const debouncedQuery = useDebounced(placeQuery, 400);
 
   const raw = params.get('step');
   const step: Step = STEPS.includes(raw as Step) ? (raw as Step) : 'date';
   const index = STEPS.indexOf(step);
 
-  const places = useQuery({ queryKey: ['custom-places'], queryFn: fetchCustomPlaces });
+  const categories = useQuery({ queryKey: ['categories'], queryFn: fetchCategories });
+
+  // Свои места агрегатор подмешивает сам и ставит первыми (ТЗ 12.3),
+  // поэтому отдельного списка «наших мест» здесь нет.
+  const places = useQuery({
+    queryKey: ['places', debouncedQuery, category],
+    queryFn: () =>
+      searchPlaces(category ? { q: debouncedQuery, category } : { q: debouncedQuery }),
+    enabled: step === 'place',
+  });
 
   const addPlace = useMutation({
     mutationFn: (name: string) => createCustomPlace({ name }),
@@ -197,41 +222,67 @@ export function CreateDateScreen() {
 
           {step === 'place' && (
             <div className="flex flex-col gap-4">
-              <p className="text-caption text-mist">
-                Пока только наши места. Поиск по городу появится в Фазе 5.
-              </p>
+              <input
+                value={placeQuery}
+                onChange={(e) => setPlaceQuery(e.target.value)}
+                placeholder="Искать место или событие"
+                className="min-h-tap w-full rounded-pill border border-stroke bg-surface2 px-5
+                           text-body text-chalk placeholder:text-ghost focus:outline-none"
+              />
+
+              {/* Категории отключены при текстовом поиске: их фильтрует OSM,
+                  а по тексту ищет KudaGo — совмещать нечего. */}
+              {!placeQuery && (
+                <div className="flex flex-wrap gap-2">
+                  {(categories.data ?? []).map((item) => (
+                    <Chip
+                      key={item}
+                      active={category === item}
+                      onClick={() => setCategory(category === item ? null : item)}
+                    >
+                      {item}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+
+              {places.isFetching && <p className="text-caption text-mist">Ищу…</p>}
+
+              {places.data?.stale && (
+                <p className="text-caption text-ghost">Данные могли устареть.</p>
+              )}
 
               <ul className="flex flex-col gap-2">
-                {places.data?.map((place) => (
-                  <li key={place.id}>
-                    <button
-                      type="button"
-                      onClick={() =>
+                {places.data?.items.map((item) => (
+                  <li key={`${item.source}:${item.external_id}`}>
+                    <PlaceCard
+                      place={item}
+                      selected={
+                        draft.place?.external_id === item.external_id &&
+                        draft.place?.source === item.source
+                      }
+                      onSelect={() =>
                         draft.setPlace({
-                          source: 'custom',
-                          name: place.name,
-                          external_id: place.id,
-                          category: place.category,
-                          address: place.address,
+                          source: item.source,
+                          external_id: item.external_id,
+                          name: item.name,
+                          category: item.category,
+                          address: item.address ?? null,
+                          lat: item.lat ?? null,
+                          lon: item.lon ?? null,
+                          photo_url: item.photo_url ?? null,
                         })
                       }
-                      className={[
-                        'w-full rounded-card border p-4 text-left transition-colors',
-                        draft.place?.external_id === place.id
-                          ? 'border-transparent bg-surface2'
-                          : 'border-stroke bg-surface',
-                      ].join(' ')}
-                    >
-                      <span className="text-body">{place.name}</span>
-                      {place.category && (
-                        <span className="ml-2 font-mono text-label uppercase text-ghost">
-                          {place.category}
-                        </span>
-                      )}
-                    </button>
+                    />
                   </li>
                 ))}
               </ul>
+
+              {places.data?.items.length === 0 && !places.isFetching && (
+                <p className="text-caption text-mist">
+                  Ничего не нашлось. Можно добавить своё место ниже.
+                </p>
+              )}
 
               <div className="flex gap-2">
                 <input
