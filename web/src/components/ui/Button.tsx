@@ -24,7 +24,7 @@ export function Button({
 
   const look =
     variant === 'primary'
-      ? 'text-void'
+      ? 'text-coal'
       : 'bg-surface2 text-chalk';
 
   return (

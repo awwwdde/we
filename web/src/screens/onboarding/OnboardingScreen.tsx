@@ -15,7 +15,7 @@ import {
 } from '@/lib/auth/passkey';
 import { DEV_LOGIN_AVAILABLE, devLogin } from '@/lib/auth/devLogin';
 import { useSession } from '@/lib/auth/session';
-import { PERSON_HEX } from '@/types/person';
+import { PERSON_VAR } from '@/types/person';
 
 type Step = 'welcome' | 'invite' | 'recovery-input' | 'codes';
 
@@ -40,6 +40,7 @@ export function OnboardingScreen() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [codesSaved, setCodesSaved] = useState(false);
 
   const from = (location.state as { from?: string } | null)?.from ?? '/';
   const supported = isPasskeySupported();
@@ -110,7 +111,7 @@ export function OnboardingScreen() {
         <Screen withTabBar={false}>
           <div className="relative flex min-h-[80dvh] flex-col justify-end">
             <h1 className="font-display text-display-l uppercase">Нужна свежая версия</h1>
-            <p className="mt-3 text-body text-mist">
+            <p className="mt-3 text-body text-linen">
               Это устройство не умеет passkey. На iPhone помогает обновление iOS
               до 17 или новее — в более старых версиях вход по Face ID
               в установленном приложении не работает.
@@ -123,7 +124,7 @@ export function OnboardingScreen() {
 
   return (
     <>
-      <OrbField state={step === 'codes' ? 'pulling' : 'apart'} className="fixed" />
+      <OrbField state={step === 'codes' ? 'drawing' : 'apart'} className="fixed" />
 
       <Screen withTabBar={false}>
         <div className="relative flex min-h-[86dvh] flex-col justify-end gap-6">
@@ -132,7 +133,7 @@ export function OnboardingScreen() {
               <div>
                 <p className="font-mono text-label uppercase text-mist">Только для двоих</p>
                 <h1 className="mt-3 font-display text-display-xl uppercase">Перигей</h1>
-                <p className="mt-3 max-w-[30ch] text-body text-mist">
+                <p className="mt-3 max-w-[30ch] text-body text-linen">
                   Пароля нет. Вход — по Face ID или Touch ID.
                 </p>
               </div>
@@ -174,18 +175,21 @@ export function OnboardingScreen() {
           {step === 'invite' && (
             <>
               <div>
-                <p className="font-mono text-label uppercase text-mist">Шаг 1 из 2</p>
+                <p className="font-mono text-label uppercase text-mist">Перигей</p>
                 <h1 className="mt-3 font-display text-display-l uppercase">Код приглашения</h1>
-                <p className="mt-3 max-w-[30ch] text-body text-mist">
-                  Одноразовый код на 24 часа. После него появится системный
-                  запрос — подтвердите его биометрией.
+                <p className="mt-3 max-w-[32ch] text-body text-linen">
+                  Приложение на двоих. Введи код, который тебе передали лично —
+                  по-другому сюда не попасть.
                 </p>
               </div>
 
               <div className="flex flex-col gap-3">
                 <CodeInput value={code} onChange={setCode} placeholder="XXXX-XXXX-XXXX" autoFocus />
+                <p className="text-caption text-mist">
+                  Дальше — Face ID. Пароля не будет вовсе.
+                </p>
                 <Button onClick={onRegister} loading={busy} disabled={code.length < 12}>
-                  Создать passkey
+                  Продолжить
                 </Button>
                 <Button variant="ghost" onClick={() => setStep('welcome')}>
                   Назад
@@ -199,7 +203,7 @@ export function OnboardingScreen() {
               <div>
                 <p className="font-mono text-label uppercase text-mist">Восстановление</p>
                 <h1 className="mt-3 font-display text-display-l uppercase">Код из десяти</h1>
-                <p className="mt-3 max-w-[30ch] text-body text-mist">
+                <p className="mt-3 max-w-[30ch] text-body text-linen">
                   Введите один из кодов, сохранённых при первом входе. Он
                   сработает один раз — сразу после входа привяжите новый passkey.
                 </p>
@@ -220,15 +224,18 @@ export function OnboardingScreen() {
           {step === 'codes' && (
             <>
               <div>
-                <p className="font-mono text-label uppercase text-mist">Шаг 2 из 2</p>
-                <h1 className="mt-3 font-display text-display-l uppercase">Сохраните коды</h1>
-                <p className="mt-3 max-w-[32ch] text-body text-mist">
-                  Показываются один раз. Если потеряете телефон, войти можно
-                  будет только по одному из них.
+                <h1 className="font-display text-display-xl uppercase leading-[0.95]">
+                  Десять
+                  <br />
+                  ключей
+                </h1>
+                <p className="mt-4 max-w-[32ch] text-body text-linen">
+                  Если телефон утонет — вход только по одному из них.
+                  Показываем один раз, честно.
                 </p>
               </div>
 
-              <ul className="grid grid-cols-2 gap-2 rounded-card border border-stroke bg-surface p-4">
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-card border border-stroke bg-surface p-4">
                 {recoveryCodes.map((item) => (
                   <li key={item} className="font-mono text-caption tracking-[0.08em] text-chalk">
                     {item}
@@ -243,8 +250,18 @@ export function OnboardingScreen() {
                 >
                   Скопировать
                 </Button>
-                <Button onClick={onCodesSaved} loading={busy}>
-                  Я сохранил
+                {/* Единственное место в приложении, где мы что-то требуем. */}
+                <label className="flex min-h-tap items-center gap-3 text-body text-linen">
+                  <input
+                    type="checkbox"
+                    checked={codesSaved}
+                    onChange={(e) => setCodesSaved(e.target.checked)}
+                    className="h-6 w-6 accent-[var(--person-color)]"
+                  />
+                  Сохранил, честное слово
+                </label>
+                <Button onClick={onCodesSaved} loading={busy} disabled={!codesSaved}>
+                  Готово
                 </Button>
               </div>
             </>
@@ -254,7 +271,7 @@ export function OnboardingScreen() {
             <p
               role="alert"
               className="text-caption"
-              style={{ color: PERSON_HEX.ember }}
+              style={{ color: PERSON_VAR.ember }}
             >
               {error}
             </p>

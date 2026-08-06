@@ -11,9 +11,9 @@ import { TimeWheel } from '@/components/ui/TimeWheel';
 import { ApiError } from '@/lib/api/client';
 import { createCustomPlace, createDate, fetchCategories, searchPlaces } from '@/lib/api/dates';
 import { screenVariants, spring } from '@/lib/motion/presets';
-import { combine, formatDayLong, formatTime, zonedToUtc } from '@/lib/time';
+import { combine, formatDayLong, formatTime, formatWeekday, zonedToUtc } from '@/lib/time';
 import { useDateDraft } from '@/screens/create-date/useDateDraft';
-import { PERSON_HEX } from '@/types/person';
+import { PERSON_VAR } from '@/types/person';
 
 /** Шаги мастера. Хранятся в query, чтобы «назад» в браузере работал (ТЗ 6.1). */
 const STEPS = ['date', 'time', 'place', 'note', 'preview'] as const;
@@ -34,6 +34,8 @@ const PRESETS = [
 ] as const;
 
 const NOTE_LIMIT = 280;
+// До этого порога счётчик не показывается — он только мешает (макет, шаг 4).
+const NOTE_SOFT_LIMIT = 240;
 
 /** Отложить значение: запрос уходит, когда человек перестал печатать. */
 function useDebounced(value: string, delay: number): string {
@@ -60,7 +62,7 @@ function Chip({
       onClick={onClick}
       className={[
         'min-h-tap rounded-pill border px-4 text-caption transition-colors',
-        active ? 'border-transparent text-void' : 'border-stroke text-mist',
+        active ? 'border-transparent text-coal' : 'border-stroke text-mist',
       ].join(' ')}
       style={active ? { background: 'var(--person-color)' } : undefined}
     >
@@ -225,7 +227,7 @@ export function CreateDateScreen() {
               <input
                 value={placeQuery}
                 onChange={(e) => setPlaceQuery(e.target.value)}
-                placeholder="Искать место или событие"
+                placeholder="Кофе, выставка, скамейка…"
                 className="min-h-tap w-full rounded-pill border border-stroke bg-surface2 px-5
                            text-body text-chalk placeholder:text-ghost focus:outline-none"
               />
@@ -305,48 +307,81 @@ export function CreateDateScreen() {
           )}
 
           {step === 'note' && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
+              <p className="text-body text-linen">Необязательно. Но она читается первой.</p>
               <textarea
                 value={draft.note}
                 onChange={(e) => draft.setNote(e.target.value.slice(0, NOTE_LIMIT))}
                 rows={5}
-                placeholder="Необязательно"
+                placeholder="Возьми ту кофту, вечером у воды ветрено."
                 className="w-full rounded-card border border-stroke bg-surface2 p-4 text-body
                            text-chalk placeholder:text-ghost focus:outline-none"
               />
-              <span className="self-end font-mono text-label uppercase text-ghost">
+              {/* Счётчик молчит до 240 символов: до этого он только мешает. */}
+              <span
+                className={[
+                  'self-end font-mono text-label uppercase',
+                  draft.note.length < NOTE_SOFT_LIMIT ? 'text-transparent' : 'text-mist',
+                ].join(' ')}
+              >
                 {draft.note.length} / {NOTE_LIMIT}
               </span>
             </div>
           )}
 
+          {/* Ровно та карточка, которую увидит второй — предпросмотр,
+              а не сводка полей (макет, шаг 5). */}
           {step === 'preview' && draft.day && (
-            <div className="rounded-card border border-stroke bg-surface p-5">
-              <p className="font-mono text-label uppercase text-mist">
-                {draft.isAllDay ? 'Весь день' : formatTime(combine(draft.day, draft.hours, draft.minutes))}
+            <div className="flex flex-col gap-4">
+              <div className="rounded-card border border-stroke bg-surface p-5">
+                <p className="font-mono text-label uppercase text-mist">Черновик</p>
+
+                <p className="mt-4 font-display text-display-l uppercase first-letter:uppercase">
+                  {formatDayLong(draft.day)}
+                </p>
+                <p className="mt-1 text-body text-linen first-letter:uppercase">
+                  {formatWeekday(draft.day)} ·{' '}
+                  {draft.isAllDay
+                    ? 'весь день'
+                    : formatTime(combine(draft.day, draft.hours, draft.minutes))}
+                </p>
+
+                <p className="mt-4 text-title">{draft.place?.name}</p>
+                {draft.place?.address && (
+                  <p className="mt-1 text-caption text-mist">{draft.place.address}</p>
+                )}
+
+                {draft.note.trim() && (
+                  <p className="mt-4 border-t border-stroke pt-4 text-body text-linen">
+                    {draft.note}
+                  </p>
+                )}
+              </div>
+
+              <p className="text-caption text-mist">
+                Второй увидит закрытый конверт и три вопроса. Отказаться
+                технически не получится.
               </p>
-              <p className="mt-2 font-display text-display-l uppercase first-letter:uppercase">
-                {formatDayLong(draft.day)}
-              </p>
-              <p className="mt-3 text-body">{draft.place?.name}</p>
-              {draft.note.trim() && (
-                <p className="mt-3 text-caption text-mist">{draft.note}</p>
-              )}
             </div>
           )}
         </motion.div>
       </AnimatePresence>
 
       {error && (
-        <p role="alert" className="mt-4 text-caption" style={{ color: PERSON_HEX.ember }}>
+        <p role="alert" className="mt-4 text-caption" style={{ color: PERSON_VAR.ember }}>
           {error}
         </p>
       )}
 
-      <div className="mt-8">
+      <div className="mt-8 flex flex-col gap-3">
         <Button onClick={next} disabled={!canContinue} loading={submit.isPending}>
-          {step === 'preview' ? 'Сохранить' : 'Дальше'}
+          {step === 'preview' ? 'Сохранить черновик' : 'Дальше'}
         </Button>
+        {step === 'note' && !draft.note.trim() && (
+          <Button variant="ghost" onClick={next}>
+            Пропустить
+          </Button>
+        )}
       </div>
     </Screen>
   );

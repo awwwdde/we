@@ -42,7 +42,7 @@ export function InstallScreen() {
             <h1 className="mt-3 font-display text-display-l uppercase">
               Поставьте на домашний экран
             </h1>
-            <p className="mt-3 max-w-[32ch] text-body text-mist">
+            <p className="mt-3 max-w-[32ch] text-body text-linen">
               Приложение работает только так: из вкладки браузера не приходят
               уведомления и не открывается полноэкранный режим.
             </p>

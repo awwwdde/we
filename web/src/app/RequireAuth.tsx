@@ -14,7 +14,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   if (status === 'unknown') {
-    return <div className="min-h-[100dvh] bg-void" aria-busy="true" />;
+    return <div className="min-h-[100dvh] bg-coal" aria-busy="true" />;
   }
 
   if (status === 'anonymous') {

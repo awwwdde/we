@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { useSession } from '@/lib/auth/session';
-import { PERSON_HEX } from '@/types/person';
+import { PERSON_VAR } from '@/types/person';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,7 +33,7 @@ export function Providers({ children }: { children: ReactNode }) {
   }, [restore, restored]);
 
   useEffect(() => {
-    const color = user ? PERSON_HEX[user.color] : PERSON_HEX.iris;
+    const color = user ? PERSON_VAR[user.color] : PERSON_VAR.iris;
     document.documentElement.style.setProperty('--person-color', color);
   }, [user]);
 

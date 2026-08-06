@@ -7,16 +7,27 @@ import { Button } from '@/components/ui/Button';
 import { ApiError, api } from '@/lib/api/client';
 import { deviceInviteSchema, deviceListSchema, type DeviceInvite } from '@/lib/api/schemas';
 import { useSession } from '@/lib/auth/session';
-import { PERSON_HEX } from '@/types/person';
+import { formatDayShort, utcToZoned } from '@/lib/time';
+import { PERSON_VAR } from '@/types/person';
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+/** «вход сегодня» / «вход 3 авг» / «ещё не входили». */
+function lastSeen(iso: string | null): string {
+  if (!iso) return 'ещё не входили';
+  const when = utcToZoned(iso);
+  const today = new Date();
+  const sameDay =
+    when.getDate() === today.getDate() &&
+    when.getMonth() === today.getMonth() &&
+    when.getFullYear() === today.getFullYear();
+  return sameDay ? 'вход сегодня' : `вход ${formatDayShort(when)}`;
 }
 
+/**
+ * Настройки (макет, раздел 05).
+ *
+ * Мини-сфера вместо аватара: цвет человека и есть его лицо. Крестик отзыва
+ * занимает положенные 44px, но визуально тихий — это редкое действие.
+ */
 export function SettingsScreen() {
   const navigate = useNavigate();
   const user = useSession((s) => s.user);
@@ -32,8 +43,7 @@ export function SettingsScreen() {
   });
 
   const createInvite = useMutation({
-    mutationFn: () =>
-      api('/auth/devices/invite', { method: 'POST', schema: deviceInviteSchema }),
+    mutationFn: () => api('/auth/devices/invite', { method: 'POST', schema: deviceInviteSchema }),
     onSuccess: (data) => {
       setInvite(data);
       setError(null);
@@ -55,52 +65,55 @@ export function SettingsScreen() {
   return (
     <Screen title="Настройки">
       {user && (
-        <div className="mb-8 flex items-center gap-3">
+        <div className="mb-10 flex items-center gap-4">
+          {/* Мини-сфера вместо аватара. */}
           <span
-            className="h-3 w-3 rounded-full"
-            style={{ background: PERSON_HEX[user.color] }}
             aria-hidden
+            className="h-12 w-12 shrink-0 rounded-full"
+            style={{
+              background: `radial-gradient(circle at 38% 38%, ${PERSON_VAR[user.color]}, transparent 70%)`,
+            }}
           />
-          <span className="text-body">{user.display_name}</span>
+          <div>
+            <p className="text-title">{user.display_name}</p>
+            <p className="font-mono text-label uppercase text-mist">{user.color} · автор</p>
+          </div>
         </div>
       )}
 
-      <section className="mb-8">
+      <section className="mb-10">
         <h2 className="mb-3 font-mono text-label uppercase text-mist">Устройства</h2>
 
         {devices.isPending && <p className="text-caption text-mist">Загружаю…</p>}
+        {devices.isError && <p className="text-caption text-mist">Не удалось загрузить список.</p>}
 
-        {devices.isError && (
-          <p className="text-caption text-mist">Не удалось загрузить список.</p>
-        )}
-
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col">
           {devices.data?.map((device) => (
             <li
               key={device.id}
-              className="flex items-center justify-between gap-3 rounded-card bg-surface p-4"
+              className="flex items-center justify-between gap-3 border-b border-stroke py-4 last:border-b-0"
             >
-              <div>
-                <p className="text-body">{device.device_label ?? 'Без названия'}</p>
-                <p className="font-mono text-label uppercase text-ghost">
-                  добавлено {formatDate(device.created_at)}
+              <div className="min-w-0">
+                <p className="truncate text-body">{device.device_label ?? 'Без названия'}</p>
+                <p className="font-mono text-label uppercase text-mist">
+                  добавлено {formatDayShort(utcToZoned(device.created_at))} ·{' '}
+                  {lastSeen(device.last_used_at)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => revoke.mutate(device.id)}
-                className="min-h-tap min-w-tap px-3 text-caption text-mist"
+                aria-label={`Отозвать ${device.device_label ?? 'устройство'}`}
+                className="flex min-h-tap min-w-tap items-center justify-center text-title text-ghost"
               >
-                Отозвать
+                ×
               </button>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="mb-8">
-        <h2 className="mb-3 font-mono text-label uppercase text-mist">Новое устройство</h2>
-
+      <section className="mb-10">
         {invite ? (
           <div className="rounded-card border border-stroke bg-surface p-5 text-center">
             <p className="font-mono text-title tracking-[0.16em]">{invite.code}</p>
@@ -114,13 +127,13 @@ export function SettingsScreen() {
             onClick={() => createInvite.mutate()}
             loading={createInvite.isPending}
           >
-            Получить код
+            Получить код для устройства
           </Button>
         )}
       </section>
 
       {error && (
-        <p role="alert" className="mb-6 text-caption" style={{ color: PERSON_HEX.ember }}>
+        <p role="alert" className="mb-6 text-caption" style={{ color: PERSON_VAR.ember }}>
           {error}
         </p>
       )}

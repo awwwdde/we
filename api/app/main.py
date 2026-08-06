@@ -11,16 +11,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
 from app.errors import register_error_handlers
 from app.middleware.csrf import CsrfHeaderMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import auth, dates, health, places
+from app.services import bootstrap
 from app.spa import mount_spa
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Пользователи и стартовый инвайт из переменных окружения: на платформе
+    # терминала нет, завести их иначе негде (см. services/bootstrap.py).
+    async with SessionLocal() as session:
+        await bootstrap.run(session)
+
     yield
     await engine.dispose()
 

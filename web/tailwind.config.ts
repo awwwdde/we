@@ -1,28 +1,35 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Дизайн-токены Перигей (ТЗ, раздел 5).
+ * Дизайн-токены «Перигея» — редизайн «Тёплая ночь и одна орбита».
  *
- * Дисциплина цвета: `lime` означает ровно одно — свидание подтверждено.
- * `ember` и `iris` — цвета людей, а не украшение.
+ * Цвета заданы CSS-переменными, а не константами: те же имена работают
+ * в тёмной и светлой теме, значения переключаются в styles/index.css.
+ *
+ * Дисциплина цвета сохранена: `lime` означает ровно одно — свидание
+ * подтверждено. `ember` и `iris` — цвета людей, а не украшение.
  */
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        void: '#0B0A0F',
-        surface: '#16141C',
-        surface2: '#201D29',
-        stroke: '#2E2A3B',
+        // Поверхности
+        coal: 'var(--coal)',
+        surface: 'var(--surface)',
+        surface2: 'var(--surface2)',
+        stroke: 'var(--stroke)',
 
-        chalk: '#F2EFF7',
-        mist: '#8E88A0',
-        ghost: '#4A4458',
+        // Текст
+        chalk: 'var(--chalk)',
+        linen: 'var(--linen)', // абзацы и длинный текст
+        mist: 'var(--mist)',
+        ghost: 'var(--ghost)',
 
-        ember: '#FF4D4D',
-        iris: '#7B5CFF',
-        lime: '#C8FF6A',
+        // Смысловые
+        ember: 'var(--ember)', // Влад
+        iris: 'var(--iris)', // Ангелина
+        lime: 'var(--lime)', // только «подтверждено»
       },
 
       fontFamily: {
@@ -32,40 +39,39 @@ const config: Config = {
       },
 
       fontSize: {
-        'display-xl': ['40px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '700' }],
-        'display-l': ['28px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '500' }],
+        'display-xl': ['40px', { lineHeight: '38px', letterSpacing: '-0.03em', fontWeight: '700' }],
+        'display-l': ['26px', { lineHeight: '30px', letterSpacing: '-0.03em', fontWeight: '500' }],
         title: ['20px', { lineHeight: '26px', fontWeight: '600' }],
-        // 16px — минимум для полей ввода, иначе Safari зумит страницу (ТЗ 15.3).
-        body: ['16px', { lineHeight: '24px', fontWeight: '400' }],
-        caption: ['13px', { lineHeight: '18px', fontWeight: '400' }],
-        label: ['11px', { lineHeight: '12px', letterSpacing: '0.08em', fontWeight: '400' }],
+        // 17px. Минимум для полей ввода — 16px, иначе Safari зумит страницу
+        // при фокусе и вернуть масштаб уже нельзя (ТЗ 15.3).
+        body: ['17px', { lineHeight: '26px', fontWeight: '400' }],
+        caption: ['14px', { lineHeight: '20px', fontWeight: '400' }],
+        label: ['11px', { lineHeight: '12px', letterSpacing: '0.14em', fontWeight: '400' }],
       },
 
       borderRadius: {
         card: '28px',
-        sheet: '32px',
+        sheet: '32px', // только верхние углы
+        tile: '20px', // плитка, фото места
+        cell: '14px', // ячейка календаря
         pill: '999px',
       },
 
       spacing: {
-        screen: '20px',
+        screen: '24px',
         'safe-t': 'env(safe-area-inset-top)',
         'safe-b': 'env(safe-area-inset-bottom)',
       },
 
       boxShadow: {
-        // На тёмном фоне глубина создаётся свечением, а не тенью (ТЗ 5.5).
-        raised: '0 0 0 1px rgba(255,255,255,0.04), 0 20px 60px -20px rgba(0,0,0,0.8)',
+        // На тёмном глубина — свечение, на светлом — тень. Переключается
+        // переменной в index.css.
+        raised: 'var(--shadow-raised)',
         person: '0 0 40px -10px var(--person-color)',
       },
 
-      minHeight: {
-        // Минимальная зона нажатия (ТЗ 15.2).
-        tap: '44px',
-      },
-      minWidth: {
-        tap: '44px',
-      },
+      minHeight: { tap: '44px' },
+      minWidth: { tap: '44px' },
     },
   },
   plugins: [],

@@ -52,7 +52,7 @@ function useIsPhone(): boolean {
 
 function UnsupportedDevice() {
   return (
-    <div className="relative min-h-[100dvh] bg-void">
+    <div className="relative min-h-[100dvh] bg-coal">
       <OrbField state="apart" className="fixed" />
 
       <main className="screen relative mx-auto flex min-h-[100dvh] max-w-[34rem] flex-col justify-center">
@@ -60,7 +60,7 @@ function UnsupportedDevice() {
         <h1 className="mt-4 font-display text-display-l uppercase">
           На этом устройстве не работает
         </h1>
-        <p className="mt-4 max-w-[34ch] text-body text-mist">
+        <p className="mt-4 max-w-[34ch] text-body text-linen">
           Откройте с телефона — приложение сделано для мобильного экрана
           и ставится на домашний экран.
         </p>

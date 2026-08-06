@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     twogis_api_key: str = ""
     kudago_city: str = "msk"
 
+    # ── Первичное заполнение (панель без терминала) ─────────────────────────
+    # У гостевого проекта на awwwdde нет консоли, поэтому пользователи и
+    # первый инвайт заводятся отсюда. Формат:
+    #   BOOTSTRAP_USERS=vlad:Влад:ember,angelina:Ангелина:iris
+    #   BOOTSTRAP_INVITES=vlad:XXXX-XXXX-XXXX,angelina:YYYY-YYYY-YYYY
+    # Инвайт действует, только пока у человека нет ни одного passkey.
+    bootstrap_users: str = ""
+    bootstrap_invites: str = ""
+
     # ── Разработка ──────────────────────────────────────────────────────────
     # Вход без passkey для отладки в браузере на ПК. Включается только
     # локально: валидатор ниже не даёт поднять приложение с этим флагом

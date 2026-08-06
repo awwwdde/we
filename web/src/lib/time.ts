@@ -83,6 +83,25 @@ export function formatWeekday(day: Date): string {
   return format(day, 'EEEE', { locale: ru });
 }
 
+/** «12 авг» — для ленты истории.
+ *
+ * Точку после сокращения убираем: в ленте она стоит рядом с разделителем
+ * `·` и читается как мусор.
+ */
+export function formatDayShort(day: Date): string {
+  return format(day, 'd MMM', { locale: ru }).replace('.', '');
+}
+
+/** «Август 2026» — заголовок группы в ленте. */
+export function formatMonthYear(day: Date): string {
+  return format(day, 'LLLL yyyy', { locale: ru });
+}
+
+/** «20» и «августа» отдельно: в макете дата стоит в две строки. */
+export function splitDate(day: Date): { day: string; month: string } {
+  return { day: format(day, 'd'), month: format(day, 'MMMM', { locale: ru }) };
+}
+
 export function formatTime(day: Date): string {
   return format(day, 'HH:mm');
 }

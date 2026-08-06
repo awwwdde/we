@@ -26,7 +26,7 @@ export function UpdatePrompt() {
       <button
         type="button"
         onClick={() => void updateServiceWorker(true)}
-        className="min-h-tap rounded-pill px-4 text-caption font-medium text-void"
+        className="min-h-tap rounded-pill px-4 text-caption font-medium text-coal"
         style={{ background: 'var(--person-color)' }}
       >
         Обновить

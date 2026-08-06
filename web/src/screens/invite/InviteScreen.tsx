@@ -8,7 +8,7 @@ export function InviteScreen() {
 
   return (
     <Screen title="Приглашение" withTabBar={false}>
-      <p className="text-body text-mist">Приглашение откроется здесь в Фазе 6.</p>
+      <p className="text-body text-linen">Приглашение откроется здесь в Фазе 6.</p>
       <p className="mt-2 font-mono text-label uppercase text-ghost">token: {token}</p>
     </Screen>
   );

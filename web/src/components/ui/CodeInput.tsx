@@ -29,7 +29,7 @@ export function CodeInput({ value, onChange, placeholder, autoFocus }: CodeInput
       spellCheck={false}
       inputMode="text"
       className="min-h-tap w-full rounded-card border border-stroke bg-surface2 px-5 py-4
-                 text-center font-mono text-body uppercase tracking-[0.16em] text-chalk
+                 text-center font-mono text-[19px] uppercase leading-[26px] tracking-[0.16em] text-chalk
                  placeholder:text-ghost focus:border-mist focus:outline-none"
     />
   );

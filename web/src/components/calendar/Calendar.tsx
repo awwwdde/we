@@ -13,7 +13,7 @@ import {
   monthGrid,
   startOfMonth,
 } from '@/lib/time';
-import { PERSON_HEX, type PersonColor } from '@/types/person';
+import { PERSON_VAR, type PersonColor } from '@/types/person';
 
 /** Ключ дня для меток: `2026-09-15`. */
 export function dayKey(day: Date): string {
@@ -64,13 +64,13 @@ function MonthGrid({
             }}
             aria-label={day.toLocaleDateString('ru-RU', { dateStyle: 'long' })}
             aria-current={isToday(day) ? 'date' : undefined}
-            className="relative flex h-11 min-h-tap items-center justify-center"
+            className="relative flex h-[46px] min-h-tap items-center justify-center"
           >
             {chosen && (
               <motion.span
                 layoutId="calendar-selection"
                 transition={spring.snappy}
-                className="absolute inset-x-1 inset-y-0 rounded-pill"
+                className="absolute inset-x-1 inset-y-0 rounded-cell"
                 style={{ background: 'var(--person-color)' }}
               />
             )}
@@ -79,7 +79,7 @@ function MonthGrid({
               className={[
                 'relative text-body font-medium tabular-nums',
                 outside ? 'opacity-0' : '',
-                past ? 'text-ghost' : chosen ? 'text-void' : 'text-chalk',
+                past ? 'text-ghost' : chosen ? 'text-coal' : 'text-chalk',
               ].join(' ')}
             >
               {day.getDate()}
@@ -92,7 +92,7 @@ function MonthGrid({
             {marker && !chosen && (
               <span
                 className="absolute bottom-0 h-[5px] w-[5px] rounded-full"
-                style={{ background: PERSON_HEX[marker] }}
+                style={{ background: PERSON_VAR[marker] }}
               />
             )}
           </button>
