@@ -17,7 +17,7 @@ from sqlalchemy import select
 
 from app.db.models import DatePlan, DateStatus
 from app.db.session import SessionLocal
-from app.services import notifications, push_service
+from app.services import notifications, push_service, weather
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +45,17 @@ async def _tick() -> None:
             # напоминание слать уже поздно — просто помечаем отправленным.
             if left <= timedelta(hours=2):
                 if not plan.reminded_2h:
-                    await notifications.reminder(session, plan, hours=2)
+                    await notifications.reminder(
+                        session, plan, hours=2, forecast=await weather.forecast(session, plan)
+                    )
                     plan.reminded_2h = True
                 plan.reminded_24h = True
             elif not plan.reminded_24h:
-                await notifications.reminder(session, plan, hours=24)
+                # Ради этой строки напоминание за сутки и существует:
+                # «завтра дождь» меняет планы, «завтра свидание» — нет.
+                await notifications.reminder(
+                    session, plan, hours=24, forecast=await weather.forecast(session, plan)
+                )
                 plan.reminded_24h = True
 
         await session.commit()

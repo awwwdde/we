@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import { DateCard } from '@/components/DateCard';
 import { Screen } from '@/components/layout/Screen';
 import { fetchDates, type DatePlan } from '@/lib/api/dates';
-import { spring } from '@/lib/motion/presets';
+import { spring, staggerDelay } from '@/lib/motion/presets';
 import { formatMonthYear, utcToZoned } from '@/lib/time';
 
 /** Свидания, сгруппированные по месяцу (макет, раздел 05). */
@@ -24,6 +24,7 @@ function groupByMonth(items: DatePlan[]): { month: string; items: DatePlan[] }[]
 }
 
 export function HistoryScreen() {
+  const reduced = useReducedMotion() ?? false;
   const dates = useQuery({ queryKey: ['dates'], queryFn: () => fetchDates() });
   const groups = dates.data ? groupByMonth(dates.data.items) : [];
 
@@ -53,10 +54,10 @@ export function HistoryScreen() {
               {group.items.map((plan, i) => (
                 <motion.li
                   key={plan.id}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={{ opacity: 0, y: reduced ? 0 : 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   // Ступенчатое появление списка (ТЗ 8.1).
-                  transition={{ ...spring.soft, delay: Math.min((groupIndex * 3 + i) * 0.04, 0.3) }}
+                  transition={{ ...spring.soft, delay: staggerDelay(groupIndex * 3 + i, reduced) }}
                 >
                   <DateCard plan={plan} />
                 </motion.li>

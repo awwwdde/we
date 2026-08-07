@@ -1,7 +1,7 @@
 """Свидания: CRUD и лента (ТЗ 11).
 
-Отправка приглашения (`/send`) появится в Фазе 6 вместе с токенами и
-публичным экраном — здесь её намеренно нет, а не «есть заглушкой».
+Отправка приглашения живёт не здесь, а в `routers/invites.py`: она про
+токен и публичную ссылку, а не про запись в таблице.
 """
 
 import uuid
@@ -14,7 +14,8 @@ from app.db.models import DatePlan, DateStatus, User
 from app.deps import CurrentUser, SessionDep
 from app.errors import AppError
 from app.schemas.dates import DateCreate, DateOut, DatePage, DatePatch
-from app.services import dates_service as svc
+from app.schemas.weather import WeatherOut
+from app.services import dates_service as svc, notifications, weather
 
 router = APIRouter(prefix="/api/dates", tags=["dates"])
 
@@ -164,6 +165,20 @@ async def patch_date(
     return await _out(session, plan)
 
 
+@router.get("/{date_id}/weather", response_model=WeatherOut | None)
+async def date_weather(
+    date_id: uuid.UUID, user: CurrentUser, session: SessionDep
+) -> WeatherOut | None:
+    """Прогноз на момент свидания. `null` — прогноза нет, это не ошибка.
+
+    Отдельным запросом, а не полем `DateOut`: погода живёт своей жизнью
+    и меняется чаще карточки, а поход в Open-Meteo не должен задерживать
+    ответ, ради которого экран и открывали.
+    """
+    plan = await _load(session, date_id, user)
+    return await weather.forecast(session, plan)
+
+
 @router.post("/{date_id}/cancel", response_model=DateOut)
 async def cancel_date(date_id: uuid.UUID, user: CurrentUser, session: SessionDep) -> DateOut:
     """Отменить может любой участник: передумать вправе оба."""
@@ -172,9 +187,18 @@ async def cancel_date(date_id: uuid.UUID, user: CurrentUser, session: SessionDep
     if plan.status in (DateStatus.cancelled, DateStatus.done):
         raise AppError("ALREADY_FINISHED", "Это свидание уже завершено", status_code=409)
 
+    # О черновике второй не знает вовсе — сообщать об отмене того, чего
+    # для него не существовало, значит выдать сюрприз задним числом.
+    was_known = plan.status is not DateStatus.draft
+
     plan.status = DateStatus.cancelled
     await session.commit()
     await session.refresh(plan)
+
+    # Второму участнику — уведомление (ТЗ 11). Отменивший его не получает.
+    if was_known:
+        await notifications.date_cancelled(session, plan, user)
+
     return await _out(session, plan)
 
 

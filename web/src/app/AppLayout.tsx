@@ -6,6 +6,7 @@ import { StandaloneGate } from '@/app/StandaloneGate';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { TabBar } from '@/components/layout/TabBar';
 import { UpdatePrompt } from '@/components/pwa/UpdatePrompt';
+import { useLenis } from '@/lib/motion/useLenis';
 import { PERSON_VAR } from '@/types/person';
 
 /** Маршруты, на которых таббар скрыт (ТЗ 6.2). */
@@ -15,6 +16,9 @@ function hidesTabBar(pathname: string): boolean {
 
 export function AppLayout() {
   const location = useLocation();
+
+  // Инерция скролла — один экземпляр на всё приложение (ТЗ 8.3).
+  useLenis();
 
   return (
     <div

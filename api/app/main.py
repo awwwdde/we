@@ -17,7 +17,7 @@ from app.db.session import SessionLocal, engine
 from app.errors import register_error_handlers
 from app.middleware.csrf import CsrfHeaderMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
-from app.routers import auth, dates, health, invites, places, push
+from app.routers import auth, dates, health, invites, notifications, places, push
 from app.services import bootstrap, reminders
 from app.spa import mount_spa
 
@@ -76,6 +76,7 @@ app.include_router(dates.router)
 app.include_router(places.router)
 app.include_router(invites.router)
 app.include_router(push.router)
+app.include_router(notifications.router)
 
 # Регистрируется последним: catch-all маршрут SPA не должен перекрывать API.
 mount_spa(app, settings.static_dir)

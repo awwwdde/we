@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { Screen } from '@/components/layout/Screen';
 import { OrbField } from '@/components/orb/OrbField';
 import { fetchDates, fetchUpcoming } from '@/lib/api/dates';
+import { fetchNotifications } from '@/lib/api/notifications';
 import { formatDayLong, formatTime, formatWeekday, utcToZoned } from '@/lib/time';
 
 /** Обратный отсчёт до свидания, обновляется раз в минуту. */
@@ -49,6 +50,11 @@ export function HomeScreen() {
     enabled: !upcoming.data,
   });
 
+  // Единственный вход в ленту событий: пятый пункт в таббар не влезает
+  // (ТЗ 6.2 фиксирует четыре), а событие должно быть видно и без push.
+  const feed = useQuery({ queryKey: ['notifications'], queryFn: fetchNotifications });
+  const unread = feed.data?.unread ?? 0;
+
   const plan = upcoming.data ?? null;
   const waiting = plan ? null : (pending.data?.items[0] ?? null);
   const waitingWhen = waiting ? utcToZoned(waiting.scheduled_at) : null;
@@ -68,7 +74,26 @@ export function HomeScreen() {
       </OrbField>
 
       <Screen>
-        <div className="relative flex min-h-[76dvh] flex-col justify-end">
+        <div className="flex justify-end">
+          <Link
+            to="/notifications"
+            className="-mr-2 inline-flex min-h-tap items-center gap-2 px-2
+                       font-mono text-label uppercase text-mist"
+          >
+            События
+            {unread > 0 && (
+              <span
+                className="h-1.5 w-1.5 rounded-pill"
+                // Цвет текущего пользователя: точка означает «это тебе»,
+                // а не статус свидания — lime здесь недопустим.
+                style={{ background: 'var(--person-color)' }}
+                aria-label={`Непрочитанных: ${unread}`}
+              />
+            )}
+          </Link>
+        </div>
+
+        <div className="relative flex min-h-[72dvh] flex-col justify-end">
           {plan && when ? (
             <>
               <p className="font-mono text-label uppercase text-mist">Ближайшее</p>

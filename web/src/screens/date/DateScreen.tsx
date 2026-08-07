@@ -5,8 +5,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { STATUS_LABEL, statusClass } from '@/components/DateCard';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
-import { cancelDate, deleteDate, fetchDate } from '@/lib/api/dates';
+import { cancelDate, deleteDate, fetchDate, fetchWeather } from '@/lib/api/dates';
 import { sendInvite } from '@/lib/api/invites';
+import { shareIcs } from '@/lib/ics';
 import { formatDayLong, formatTime, formatWeekday, splitDate, utcToZoned } from '@/lib/time';
 import { PERSON_VAR } from '@/types/person';
 
@@ -26,6 +27,16 @@ export function DateScreen() {
   const [copied, setCopied] = useState(false);
 
   const date = useQuery({ queryKey: ['date', id], queryFn: () => fetchDate(id), enabled: !!id });
+
+  // Отдельным запросом: поход в Open-Meteo не должен задерживать карточку,
+  // ради которой экран и открывали. Отменённое свидание погоду не спрашивает.
+  const status = date.data?.status;
+  const weather = useQuery({
+    queryKey: ['weather', id],
+    queryFn: () => fetchWeather(id),
+    enabled: !!id && status !== undefined && status !== 'cancelled' && status !== 'done',
+    staleTime: 30 * 60 * 1000,
+  });
 
   /**
    * Отдать ссылку системным share-sheet, с запасным копированием в буфер.
@@ -144,6 +155,21 @@ export function DateScreen() {
             {plan.is_all_day ? 'весь день' : formatTime(when)}
           </p>
 
+          {/* Погода — одна строка и подпись. Молчит, когда прогноза нет:
+              «прогноз недоступен» — сообщение ни о чём. */}
+          {weather.data && (
+            <p className="mt-2 text-body text-linen">
+              {weather.data.temp_c > 0 ? '+' : ''}
+              {weather.data.temp_c}° · {weather.data.description}
+              {weather.data.precipitation_chance !== null &&
+                weather.data.precipitation_chance >= 40 &&
+                ` · осадки ${weather.data.precipitation_chance}%`}
+              {weather.data.stale && (
+                <span className="text-mist"> · прогноз мог устареть</span>
+              )}
+            </p>
+          )}
+
           <section className="mt-8 border-t border-stroke pt-5">
             <p className="font-mono text-label uppercase text-mist">Место</p>
             <p className="mt-2 text-title">{plan.place.name}</p>
@@ -207,6 +233,14 @@ export function DateScreen() {
               {plan.status === 'pending' && (
                 <Button variant="ghost" onClick={() => send.mutate()} loading={send.isPending}>
                   {link ? 'Показать ссылку ещё раз' : 'Получить ссылку снова'}
+                </Button>
+              )}
+
+              {/* Подтверждённое можно унести в календарь телефона: внутри
+                  приложения свидание видно, а в общем расписании дня — нет. */}
+              {plan.status === 'confirmed' && (
+                <Button variant="ghost" onClick={() => void shareIcs(plan)}>
+                  В календарь телефона
                 </Button>
               )}
 

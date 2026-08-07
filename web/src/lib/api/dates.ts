@@ -96,6 +96,26 @@ export function createDate(payload: DateDraftPayload) {
   return api('/dates', { method: 'POST', body: payload, schema: datePlanSchema });
 }
 
+export const weatherSchema = z.object({
+  temp_c: z.number(),
+  code: z.number(),
+  description: z.string(),
+  precipitation_chance: z.number().nullable(),
+  /** Прогноз из кэша: Open-Meteo не ответил. */
+  stale: z.boolean(),
+});
+
+export type Weather = z.infer<typeof weatherSchema>;
+
+/**
+ * Прогноз на дату свидания. `null` — прогноза нет, и это нормально:
+ * у своего места может не быть координат, а дальше 16 суток погоду
+ * не знает никто.
+ */
+export function fetchWeather(id: string) {
+  return api(`/dates/${id}/weather`, { schema: weatherSchema.nullable() });
+}
+
 export function cancelDate(id: string) {
   return api(`/dates/${id}/cancel`, { method: 'POST', schema: datePlanSchema });
 }

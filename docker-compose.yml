@@ -57,6 +57,11 @@ services:
     working_dir: /app
     environment:
       VITE_API_PROXY_TARGET: http://api:8000
+      # Через bind-mount с Windows inotify не работает: контейнер не узнаёт
+      # о правках, HMR молчит, и Vite продолжает отдавать прежний модуль —
+      # выглядит как «нет такого экспорта» в браузере при верном исходнике.
+      # Опрос вместо событий — единственный рабочий вариант.
+      CHOKIDAR_USEPOLLING: "true"
     volumes:
       - ./web:/app
       - webnodemodules:/app/node_modules

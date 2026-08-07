@@ -195,5 +195,7 @@ async def respond_to_invite(
 
     if payload.accepted:
         await notifications.invite_confirmed(session, plan)
+    else:
+        await notifications.invite_declined(session, plan)
 
     return await _build_public(session, invite)
