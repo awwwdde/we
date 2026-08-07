@@ -38,14 +38,25 @@ function MonthGrid({
   selected,
   markers,
   onSelect,
+  width,
 }: {
   month: Date;
   selected: Date | null;
   markers: ReadonlyMap<string, PersonColor> | undefined;
   onSelect: (day: Date) => void;
+  /** Ширина экрана в px.
+   *
+   * Именно число, а не `w-full`: лента шириной в три экрана, и процент
+   * отсчитывался бы от неё — месяц выходил втрое шире видимой области,
+   * и большая часть дней уезжала за край.
+   */
+  width: number;
 }) {
   return (
-    <div className="grid w-full shrink-0 grid-cols-7 gap-y-1">
+    <div
+      className="grid shrink-0 grid-cols-7 gap-y-1"
+      style={{ width: width || '33.3333%' }}
+    >
       {monthGrid(month).map((day) => {
         const outside = !isInMonth(day, month);
         const past = isPastDay(day);
@@ -215,13 +226,21 @@ export function Calendar({ selected, onSelect, markers }: CalendarProps) {
             selected={selected}
             markers={markers}
             onSelect={onSelect}
+            width={width}
           />
-          <MonthGrid month={month} selected={selected} markers={markers} onSelect={onSelect} />
+          <MonthGrid
+            month={month}
+            selected={selected}
+            markers={markers}
+            onSelect={onSelect}
+            width={width}
+          />
           <MonthGrid
             month={addMonths(month, 1)}
             selected={selected}
             markers={markers}
             onSelect={onSelect}
+            width={width}
           />
         </motion.div>
       </div>

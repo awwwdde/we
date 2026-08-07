@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { STATUS_LABEL, statusClass } from '@/components/DateCard';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/ui/Button';
 import { cancelDate, deleteDate, fetchDate } from '@/lib/api/dates';
+import { sendInvite } from '@/lib/api/invites';
 import { formatDayLong, formatTime, formatWeekday, splitDate, utcToZoned } from '@/lib/time';
 import { PERSON_VAR } from '@/types/person';
 
@@ -20,7 +22,39 @@ export function DateScreen() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const date = useQuery({ queryKey: ['date', id], queryFn: () => fetchDate(id), enabled: !!id });
+
+  /**
+   * Отдать ссылку системным share-sheet, с запасным копированием в буфер.
+   * Ссылку заодно показываем на экране: если share-sheet закрыть, она
+   * должна остаться доступной, а не пропасть.
+   */
+  const share = async (url: string): Promise<void> => {
+    setLink(url);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Перигей', text: 'Кое-что задумано', url });
+        return;
+      } catch {
+        // Закрыли share-sheet — не ошибка, копируем.
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+  };
+
+  const send = useMutation({
+    mutationFn: () => sendInvite(id),
+    onSuccess: async (result) => {
+      navigator.vibrate?.(30);
+      await share(result.url);
+      void queryClient.invalidateQueries({ queryKey: ['date', id] });
+      void queryClient.invalidateQueries({ queryKey: ['dates'] });
+    },
+  });
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['dates'] });
@@ -136,13 +170,47 @@ export function DateScreen() {
               ` · подтверждено ${formatDayLong(utcToZoned(plan.confirmed_at))}`}
           </p>
 
+          {/* Ссылка остаётся на экране после отправки: закрытый share-sheet
+              не должен уносить её с собой. */}
+          {link && (
+            <div className="mt-6 rounded-card border border-stroke bg-surface p-4">
+              <p className="font-mono text-label uppercase text-mist">Ссылка-приглашение</p>
+              <p className="mt-2 break-all font-mono text-caption text-chalk">{link}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(link);
+                  setCopied(true);
+                }}
+                className="mt-3 min-h-tap text-caption text-mist underline-offset-4 hover:underline"
+              >
+                {copied ? 'Скопировано' : 'Скопировать'}
+              </button>
+            </div>
+          )}
+
           {!finished && (
             <div className="mt-8 flex flex-col gap-3">
-              {plan.status === 'draft' ? (
-                <Button variant="ghost" onClick={() => remove.mutate()} loading={remove.isPending}>
-                  Удалить черновик
+              {plan.status === 'draft' && (
+                <>
+                  <Button onClick={() => send.mutate()} loading={send.isPending}>
+                    Отправить приглашение
+                  </Button>
+                  <Button variant="ghost" onClick={() => remove.mutate()} loading={remove.isPending}>
+                    Удалить черновик
+                  </Button>
+                </>
+              )}
+
+              {/* Уже отправленное можно отправить ещё раз — сервер отдаст
+                  ту же ссылку, новое приглашение не создаётся. */}
+              {plan.status === 'pending' && (
+                <Button variant="ghost" onClick={() => send.mutate()} loading={send.isPending}>
+                  {link ? 'Показать ссылку ещё раз' : 'Получить ссылку снова'}
                 </Button>
-              ) : (
+              )}
+
+              {plan.status !== 'draft' && (
                 <Button variant="ghost" onClick={() => cancel.mutate()} loading={cancel.isPending}>
                   Отменить свидание
                 </Button>

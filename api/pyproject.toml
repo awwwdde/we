@@ -18,6 +18,10 @@ dependencies = [
     "pyjwt>=2.9.0",
     # Argon2id для хэшей инвайт-кодов и кодов восстановления (ТЗ 9.7).
     "argon2-cffi>=23.1.0",
+    # Web-push напрямую в push-сервисы браузеров, без Firebase (ТЗ 13.1).
+    "pywebpush>=2.0.0",
+    # Напоминания за сутки и за 2 часа (ТЗ 13.5).
+    "apscheduler>=3.10.0",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +45,12 @@ plugins = ["pydantic.mypy"]
 # alembic-скрипты генерируются шаблоном и не аннотируются полностью.
 module = "alembic.*"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+# pywebpush и apscheduler не поставляют типы (нет py.typed). Свой код
+# при этом остаётся под strict — отключаем только проверку их импортов.
+module = ["pywebpush.*", "apscheduler.*"]
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 100

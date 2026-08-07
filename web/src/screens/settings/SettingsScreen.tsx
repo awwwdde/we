@@ -7,6 +7,15 @@ import { Button } from '@/components/ui/Button';
 import { ApiError, api } from '@/lib/api/client';
 import { deviceInviteSchema, deviceListSchema, type DeviceInvite } from '@/lib/api/schemas';
 import { useSession } from '@/lib/auth/session';
+import {
+  fetchPushStatus,
+  isPushSupported,
+  isStandalone,
+  sendTestPush,
+  subscribeToPush,
+  unsubscribeFromPush,
+  type PushBlocker,
+} from '@/lib/push/subscribe';
 import { formatDayShort, utcToZoned } from '@/lib/time';
 import { PERSON_VAR } from '@/types/person';
 
@@ -36,6 +45,7 @@ export function SettingsScreen() {
 
   const [invite, setInvite] = useState<DeviceInvite | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pushNote, setPushNote] = useState<string | null>(null);
 
   const devices = useQuery({
     queryKey: ['devices'],
@@ -61,6 +71,43 @@ export function SettingsScreen() {
     onError: (err: unknown) =>
       setError(err instanceof ApiError ? err.message : 'Не получилось отозвать'),
   });
+
+  const push = useQuery({ queryKey: ['push-status'], queryFn: fetchPushStatus });
+
+  /** Понятная причина, почему подписаться не вышло (ТЗ 13.6). */
+  const BLOCKER_TEXT: Record<Exclude<PushBlocker, null>, string> = {
+    unsupported: 'Это устройство не умеет push-уведомления.',
+    'not-standalone':
+      'Нужно открыть приложение с домашнего экрана. В браузерной вкладке ' +
+      'на iPhone подписка не создаётся вовсе.',
+    denied: 'Разрешение не выдано. Включить можно в настройках устройства.',
+    'not-configured': 'Уведомления пока не настроены на сервере.',
+  };
+
+  const enablePush = useMutation({
+    mutationFn: subscribeToPush,
+    onSuccess: (blocker) => {
+      setPushNote(blocker ? BLOCKER_TEXT[blocker] : null);
+      void queryClient.invalidateQueries({ queryKey: ['push-status'] });
+    },
+    onError: () => setPushNote('Не получилось подписаться.'),
+  });
+
+  const disablePush = useMutation({
+    mutationFn: unsubscribeFromPush,
+    onSuccess: () => {
+      setPushNote(null);
+      void queryClient.invalidateQueries({ queryKey: ['push-status'] });
+    },
+  });
+
+  const testPush = useMutation({
+    mutationFn: sendTestPush,
+    onSuccess: () => setPushNote('Отправлено. Если не пришло — доставка не мгновенна.'),
+    onError: () => setPushNote('Ни одно устройство не приняло уведомление.'),
+  });
+
+  const subscribed = (push.data?.subscriptions ?? 0) > 0;
 
   return (
     <Screen title="Настройки">
@@ -111,6 +158,48 @@ export function SettingsScreen() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="mb-3 font-mono text-label uppercase text-mist">Уведомления</h2>
+
+        {!isPushSupported() ? (
+          <p className="text-caption text-mist">{BLOCKER_TEXT.unsupported}</p>
+        ) : !isStandalone() ? (
+          <p className="text-caption text-mist">{BLOCKER_TEXT['not-standalone']}</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-caption text-mist">
+              {subscribed
+                ? 'Это устройство получает уведомления.'
+                : 'Приглашения и напоминания за сутки и за 2 часа.'}
+            </p>
+            {subscribed ? (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => testPush.mutate()}
+                  loading={testPush.isPending}
+                >
+                  Проверить
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => disablePush.mutate()}
+                  loading={disablePush.isPending}
+                >
+                  Отключить на этом устройстве
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => enablePush.mutate()} loading={enablePush.isPending}>
+                Включить уведомления
+              </Button>
+            )}
+          </div>
+        )}
+
+        {pushNote && <p className="mt-3 text-caption text-linen">{pushNote}</p>}
       </section>
 
       <section className="mb-10">

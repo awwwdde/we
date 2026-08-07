@@ -32,6 +32,11 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** В офлайне сферы замирают — это часть офлайн-состояния (ТЗ 14.3). */
+function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
 /**
  * Фирменный фон: две сферы на одной орбите.
  *
@@ -61,7 +66,7 @@ export function OrbField({ state = 'apart', className, children }: OrbFieldProps
       if (disposed) return;
 
       // Уважаем «уменьшить движение»: конечная поза без дрейфа (ТЗ 8.4).
-      const still = prefersReducedMotion();
+      const still = prefersReducedMotion() || isOffline();
       const ease = 'power3.inOut';
       const duration = still ? 0 : TRANSITION;
 

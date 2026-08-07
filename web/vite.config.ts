@@ -23,8 +23,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#0B0A0F',
-        theme_color: '#0B0A0F',
+        background_color: '#0B0908',
+        theme_color: '#0B0908',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -40,7 +40,11 @@ export default defineConfig({
 
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,png,svg}'],
+        globIgnores: ['push-sw.js'],
         cleanupOutdatedCaches: true,
+        // Обработчики push живут отдельным файлом: кэширование остаётся
+        // за Workbox, а свой код не приходится вписывать в генерируемый SW.
+        importScripts: ['/push-sw.js'],
         // Запросы к API никогда не должны отдаваться из precache-оболочки.
         navigateFallbackDenylist: [/^\/api\//, /^\/healthz$/],
         runtimeCaching: [

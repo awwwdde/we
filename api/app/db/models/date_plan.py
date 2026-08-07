@@ -96,6 +96,15 @@ class DatePlan(Base):
     # Сырой ответ провайдера на момент выбора — для отладки и восстановления.
     place_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
 
+    # Дедупликация напоминаний (ТЗ 13.5): без флагов при рестарте
+    # планировщика они бы отправились повторно.
+    reminded_24h: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    reminded_2h: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

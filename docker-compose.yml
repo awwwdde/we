@@ -35,6 +35,11 @@ services:
       # Вход без passkey для отладки в браузере на ПК. Файл dev-only;
       # на проде config.py не даст поднять приложение с этим флагом.
       DEV_AUTH_ENABLED: "true"
+      # Ключи для локальной проверки уведомлений. На проде задаются
+      # в переменных проекта на панели.
+      VAPID_PRIVATE_KEY: _rsEPRisbCUXTlbRwUwUIF4HX7yfxmcVgrXkeuKIvvs
+      VAPID_PUBLIC_KEY: BCc-k5xBjQp4zZzaXeLpSfSqDQk_oA8VM4fJjKv4YflZAwrdjhmUC4lqRFa4E6twQ4u-fIWNYUV8SIANkE1Tic4
+      VAPID_SUBJECT: mailto:admin@awwwdde.art
     volumes:
       - ./api:/app
     ports:

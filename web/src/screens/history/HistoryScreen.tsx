@@ -31,7 +31,12 @@ export function HistoryScreen() {
     <Screen title="История">
       {dates.isPending && <p className="text-caption text-mist">Загружаю…</p>}
 
-      {dates.isError && <p className="text-caption text-mist">Не удалось загрузить ленту.</p>}
+      {/* Ошибку показываем, только если показывать больше нечего: при
+          неудачном фоновом обновлении данные из кэша остаются на экране,
+          и баннер поверх них просто пугает. */}
+      {dates.isError && !dates.data && (
+        <p className="text-caption text-mist">Не удалось загрузить ленту.</p>
+      )}
 
       {dates.data?.items.length === 0 && (
         <p className="text-body text-linen">Здесь появятся прошедшие свидания.</p>

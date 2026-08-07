@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 import { Screen } from '@/components/layout/Screen';
 import { OrbField } from '@/components/orb/OrbField';
-import { fetchUpcoming } from '@/lib/api/dates';
+import { fetchDates, fetchUpcoming } from '@/lib/api/dates';
 import { formatDayLong, formatTime, formatWeekday, utcToZoned } from '@/lib/time';
 
 /** Обратный отсчёт до свидания, обновляется раз в минуту. */
@@ -39,14 +39,26 @@ function useCountdown(target: Date | null): string | null {
  */
 export function HomeScreen() {
   const upcoming = useQuery({ queryKey: ['upcoming'], queryFn: fetchUpcoming });
+
+  // Ожидающее ответа приглашение тоже должно быть видно: раньше оно
+  // терялось в ленте истории, и «отправил, а дальше тишина» выглядело
+  // как будто ничего не произошло.
+  const pending = useQuery({
+    queryKey: ['dates', 'pending'],
+    queryFn: () => fetchDates({ status: 'pending' }),
+    enabled: !upcoming.data,
+  });
+
   const plan = upcoming.data ?? null;
+  const waiting = plan ? null : (pending.data?.items[0] ?? null);
+  const waitingWhen = waiting ? utcToZoned(waiting.scheduled_at) : null;
   const when = plan ? utcToZoned(plan.scheduled_at) : null;
   const countdown = useCountdown(when);
 
   return (
     <>
       {/* Слиты — когда свидание подтверждено, порознь — когда его нет. */}
-      <OrbField state={plan ? 'merged' : 'apart'} className="fixed">
+      <OrbField state={plan ? 'merged' : waiting ? 'drawing' : 'apart'} className="fixed">
         {plan && (
           <div className="text-center">
             <p className="font-mono text-title tabular-nums text-chalk">{countdown}</p>
@@ -88,6 +100,27 @@ export function HomeScreen() {
                            border border-stroke px-6 text-body text-chalk"
               >
                 Подробнее
+              </Link>
+            </>
+          ) : waiting && waitingWhen ? (
+            <>
+              <p className="font-mono text-label uppercase text-mist">Ждём ответа</p>
+              <h1 className="mt-4 font-display text-display-xl uppercase first-letter:uppercase">
+                {formatDayLong(waitingWhen)}
+              </h1>
+              <p className="mt-2 text-body text-linen">
+                {waiting.is_all_day ? 'весь день' : formatTime(waitingWhen)} ·{' '}
+                {waiting.place.name}
+              </p>
+              <p className="mt-4 max-w-[30ch] text-body text-linen">
+                Приглашение отправлено. Ответа пока нет.
+              </p>
+              <Link
+                to={`/date/${waiting.id}`}
+                className="mt-6 inline-flex min-h-tap w-fit items-center rounded-pill
+                           border border-stroke px-6 text-body text-chalk"
+              >
+                Ссылка и подробности
               </Link>
             </>
           ) : (

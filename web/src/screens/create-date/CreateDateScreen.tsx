@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { TimeWheel } from '@/components/ui/TimeWheel';
 import { ApiError } from '@/lib/api/client';
 import { createCustomPlace, createDate, fetchCategories, searchPlaces } from '@/lib/api/dates';
+import { sendInvite } from '@/lib/api/invites';
 import { screenVariants, spring } from '@/lib/motion/presets';
 import { combine, formatDayLong, formatTime, formatWeekday, zonedToUtc } from '@/lib/time';
 import { useDateDraft } from '@/screens/create-date/useDateDraft';
@@ -77,6 +78,7 @@ export function CreateDateScreen() {
   const draft = useDateDraft();
   const [error, setError] = useState<string | null>(null);
   const [newPlaceName, setNewPlaceName] = useState('');
+  const [copied, setCopied] = useState(false);
   const [placeQuery, setPlaceQuery] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   // Задержка перед запросом: без неё поиск уходил бы на каждую букву,
@@ -107,6 +109,24 @@ export function CreateDateScreen() {
     },
   });
 
+  /**
+   * Отдать ссылку системным share-sheet, а если его нет — в буфер обмена
+   * (ТЗ 2.2, шаг 5). `navigator.share` есть не везде, но на iOS и Android
+   * он именно то, чего человек ждёт от кнопки «Отправить».
+   */
+  const shareLink = async (url: string): Promise<void> => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Перигей', text: 'Кое-что задумано', url });
+        return;
+      } catch {
+        // Человек закрыл share-sheet — это не ошибка, просто копируем.
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+  };
+
   const submit = useMutation({
     mutationFn: () => {
       if (!draft.day || !draft.place) throw new Error('Черновик не заполнен');
@@ -129,6 +149,33 @@ export function CreateDateScreen() {
     },
     onError: (err: unknown) =>
       setError(err instanceof ApiError ? err.message : 'Не получилось сохранить'),
+  });
+
+  /** Создать свидание и сразу отправить приглашение. */
+  const send = useMutation({
+    mutationFn: async () => {
+      if (!draft.day || !draft.place) throw new Error('Черновик не заполнен');
+      const moment = draft.isAllDay
+        ? combine(draft.day, 0, 0)
+        : combine(draft.day, draft.hours, draft.minutes);
+
+      const plan = await createDate({
+        scheduled_at: zonedToUtc(moment).toISOString(),
+        is_all_day: draft.isAllDay,
+        note: draft.note.trim() || null,
+        place: draft.place,
+      });
+      const invite = await sendInvite(plan.id);
+      return { plan, invite };
+    },
+    onSuccess: async ({ plan, invite }) => {
+      navigator.vibrate?.(30);
+      await shareLink(invite.url);
+      draft.reset();
+      navigate(`/date/${plan.id}`, { replace: true });
+    },
+    onError: (err: unknown) =>
+      setError(err instanceof ApiError ? err.message : 'Не получилось отправить'),
   });
 
   const go = (to: Step) => setParams({ step: to }, { replace: false });
@@ -178,7 +225,10 @@ export function CreateDateScreen() {
 
       <h1 className="mb-6 font-display text-display-l uppercase">{STEP_TITLE[step]}</h1>
 
-      <AnimatePresence mode="wait" initial={false}>
+      {/* popLayout, а не wait: в режиме wait следующий шаг не смонтируется,
+          пока не доиграет exit предыдущего, и застрявшая анимация запирает
+          мастер целиком. */}
+      <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           key={step}
           variants={screenVariants}
@@ -373,10 +423,35 @@ export function CreateDateScreen() {
         </p>
       )}
 
-      <div className="mt-8 flex flex-col gap-3">
-        <Button onClick={next} disabled={!canContinue} loading={submit.isPending}>
-          {step === 'preview' ? 'Сохранить черновик' : 'Дальше'}
-        </Button>
+      {copied && (
+        <p className="mt-4 text-center text-caption text-mist">
+          Ссылка скопирована — отправьте её сами.
+        </p>
+      )}
+
+      {/* Панель действий липкая: в шаге «Где» список мест уходит на восемь
+          экранов вниз, и кнопка «Дальше» оказывалась недосягаемой, даже
+          когда место выбрано первым. Фон непрозрачный, без блюра — на
+          длинном списке backdrop-filter роняет FPS (ТЗ 5.3). */}
+      <div
+        className="sticky bottom-0 -mx-screen mt-8 flex flex-col gap-3 border-t border-stroke
+                   bg-coal px-screen pt-4"
+        style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+      >
+        {step === 'preview' ? (
+          <Button onClick={() => send.mutate()} loading={send.isPending}>
+            Отправить приглашение
+          </Button>
+        ) : (
+          <Button onClick={next} disabled={!canContinue}>
+            Дальше
+          </Button>
+        )}
+        {step === 'preview' && (
+          <Button variant="ghost" onClick={next} loading={submit.isPending}>
+            Сохранить черновик
+          </Button>
+        )}
         {step === 'note' && !draft.note.trim() && (
           <Button variant="ghost" onClick={next}>
             Пропустить

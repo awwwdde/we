@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import { StandaloneGate } from '@/app/StandaloneGate';
+import { OfflineNotice } from '@/components/OfflineNotice';
 import { TabBar } from '@/components/layout/TabBar';
 import { UpdatePrompt } from '@/components/pwa/UpdatePrompt';
 import { PERSON_VAR } from '@/types/person';
@@ -23,6 +24,8 @@ export function AppLayout() {
       style={{ '--person-color': PERSON_VAR.iris } as CSSProperties}
     >
       <StandaloneGate>
+        <OfflineNotice />
+
         <AnimatePresence mode="wait" initial={false}>
           <Outlet key={location.pathname} />
         </AnimatePresence>

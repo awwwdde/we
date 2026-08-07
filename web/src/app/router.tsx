@@ -1,19 +1,39 @@
-import type { ReactNode } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 
 import { AppLayout } from '@/app/AppLayout';
 import { Providers } from '@/app/Providers';
 import { RequireAuth } from '@/app/RequireAuth';
-import { CreateDateScreen } from '@/screens/create-date/CreateDateScreen';
-import { DateScreen } from '@/screens/date/DateScreen';
-import { HistoryScreen } from '@/screens/history/HistoryScreen';
+const CreateDateScreen = lazy(() =>
+  import('@/screens/create-date/CreateDateScreen').then((m) => ({ default: m.CreateDateScreen })),
+);
+const DateScreen = lazy(() =>
+  import('@/screens/date/DateScreen').then((m) => ({ default: m.DateScreen })),
+);
+const HistoryScreen = lazy(() =>
+  import('@/screens/history/HistoryScreen').then((m) => ({ default: m.HistoryScreen })),
+);
 import { HomeScreen } from '@/screens/home/HomeScreen';
-import { InviteScreen } from '@/screens/invite/InviteScreen';
+const InviteScreen = lazy(() =>
+  import('@/screens/invite/InviteScreen').then((m) => ({ default: m.InviteScreen })),
+);
 import { NotFoundScreen } from '@/screens/not-found/NotFoundScreen';
 import { OnboardingScreen } from '@/screens/onboarding/OnboardingScreen';
-import { SettingsScreen } from '@/screens/settings/SettingsScreen';
+const SettingsScreen = lazy(() =>
+  import('@/screens/settings/SettingsScreen').then((m) => ({ default: m.SettingsScreen })),
+);
 
-const guard = (element: ReactNode) => <RequireAuth>{element}</RequireAuth>;
+/**
+ * Экран догружается отдельным чанком (ТЗ 15.5: стартовый бандл < 200 КБ).
+ * Пока чанк едет — пустой фон в цвете приложения, а не белая вспышка.
+ */
+const load = (element: ReactNode) => (
+  <Suspense fallback={<div className="min-h-[100dvh] bg-coal" aria-busy="true" />}>
+    {element}
+  </Suspense>
+);
+
+const guard = (element: ReactNode) => <RequireAuth>{load(element)}</RequireAuth>;
 
 /** Карта маршрутов (ТЗ 6.1). */
 export const router = createBrowserRouter([
@@ -27,7 +47,7 @@ export const router = createBrowserRouter([
     children: [
       // Публичные: онбординг и приглашение по ссылке.
       { path: '/onboarding', element: <OnboardingScreen /> },
-      { path: '/i/:token', element: <InviteScreen /> },
+      { path: '/i/:token', element: load(<InviteScreen />) },
 
       { path: '/', element: guard(<HomeScreen />) },
       { path: '/create', element: guard(<CreateDateScreen />) },
